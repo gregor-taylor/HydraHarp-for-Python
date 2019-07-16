@@ -46,7 +46,7 @@ class HydraHarp():
         self.flags = ct.c_int()
         self.features = ct.c_int()
         self.nRecords = ct.c_int()
-        self.ctcStatus = ct.c_int()
+        self.ctcStatus = ct.c_int()#0=Measurement running, 1=finished
         self.warnings = ct.c_int()
         self.histoLen = ct.c_int()
         self.warningsText = ct.create_string_buffer(b"", 16384)
@@ -55,11 +55,11 @@ class HydraHarp():
         self.nBytesReceived = ct.c_int()
         self.errorString = ct.create_string_buffer(b"", 40)
         #Some dicts to hold measurement info for reference
-        Ch_1_parameters={}
-        Ch_2_parameters={}
-        Ch_3_parameters={}
-        Ch_4_parameters={}
-        Sync_ch_parameters={}
+        self.Ch_0_parameters={}
+        self.Ch_1_parameters={}
+        self.Ch_2_parameters={}
+        self.Ch_3_parameters={}
+        self.Sync_ch_parameters={}
         #Setup some parameter defaults
         self._dev_id = ct.c_int(devid) 
         self.measurement_running = False
@@ -72,7 +72,7 @@ class HydraHarp():
         if retcode < 0: #Error codes are less than zero
             self.hhlib.HH_GetErrorString(self.errorString, ct.c_int(retcode))
             print("HH_%s error %d (%s). Aborted." % (func_name, retcode, self.errorString.value.decode("utf-8")))
-            #self.close_device()
+            #self.close_device() Commented out while initial errors dealt with.
 
 
     def initialise(self, mode, clk_source): #This routine must be called before any of the other routines below can be used. Note that some of them depend on the
@@ -92,12 +92,14 @@ class HydraHarp():
         self.execute_func(self.hhlib.HH_CloseDevice(self._dev_id), 'close_device')
 
 #=====================
-#Below functions once intialised
+#Below functions once initialised
 #=====================
 
     def get_hardware_info(self):
-        self.execute_func(self.hhlib.HH_GetHardwareInfo(self._dev_id, self.hwModel, self.hwPartno), 'get_hardware_info')
-
+        ###DEBUG
+        ###self.execute_func(self.hhlib.HH_GetHardwareInfo(self._dev_id, self.hwModel, self.hwPartno), 'get_hardware_info'
+        pass
+    
     def get_features(self):
         self.execute_func(self.hhlib.HH_GetFeatures(self._dev_id, ct.byref(self.features)), 'get_features')
 
@@ -141,14 +143,14 @@ class HydraHarp():
         self.execute_func(self.hhlib.HH_SetSyncChannelOffset(self._dev_id, ct.c_int(value)), 'set_sync_channel_offset')
 
     def set_input_cfd(self, channel, level, zero_cross): #Value is given as a positive number although the electrical signals are actually negative.
-        if channel == 1:
-            current_dict=Ch_1_parameters
+        if channel == 0:
+            current_dict=self.Ch_0_parameters
+        elif channel == 1:
+            current_dict=self.Ch_1_parameters
         elif channel == 2:
-            current_dict=Ch_2_parameters
+            current_dict=self.Ch_2_parameters
         elif channel == 3:
-            current_dict=Ch_3_parameters
-        elif channel == 4:
-            current_dict=Ch_4_parameters
+            current_dict=self.Ch_3_parameters
         current_dict['Level']=level
         current_dict['Zero X']=zero_cross
         self.execute_func(self.hhlib.HH_SetInputCFD(self._dev_id, ct.c_int(channel), ct.c_int(level), ct.c_int(zero_cross)), 'set_input_cfd')
@@ -218,7 +220,7 @@ class HydraHarp():
                               #clear denotes the action upon completing the reading process
                               #0 = keeps the histogram in the acquisition buffer
                               #1 = clears the acquisition buffer
-        self.histoBuffer = (ct.c_uint*self.histoLen)()
+        self.histoBuffer = (ct.c_uint*self.histoLen.value)()
         self.execute_func(self.hhlib.HH_GetHistogram(self._dev_id, ct.byref(self.histoBuffer), ct.c_int(channel), ct.c_int(clear)), 'get_histogram') 
 
     def get_resolution(self):
@@ -354,14 +356,6 @@ def list_devs(MAXDEVNUM):
             pass
         else:
             print('Device %d - '%i + dev)
-
-
-
-if __name__ == '__main__':
-        pass
-
-
-
 
 
 
